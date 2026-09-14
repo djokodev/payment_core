@@ -1,0 +1,27 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: payment-core-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_core
+    ports:
+      - "5432:5432"
+    volumes:
+      - payment_core_data:/var/lib/postgresql/data
+
+  # Interface web légère pour voir les tables
+  adminer:
+    image: adminer
+    container_name: payment-core-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  payment_core_data:
