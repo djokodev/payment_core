@@ -58,7 +58,7 @@ public class Payment {
         this.amount = amount;
         this.fromAccountReference = fromAccountReference;
         this.toAccountReference = toAccountReference;
-        this.status = PaymentStatus.SUCCESS;
+        this.status = PaymentStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -92,5 +92,13 @@ public class Payment {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public void markSuccess() {
+        this.status = PaymentStatus.SUCCESS;
+    }
+
+    public void markFailed() {
+        this.status = PaymentStatus.FAILED;
     }
 }

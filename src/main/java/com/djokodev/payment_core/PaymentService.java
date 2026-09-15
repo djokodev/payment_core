@@ -11,13 +11,16 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
+    private final PaymentProvider paymentProvider;
 
     public PaymentService(
             PaymentRepository paymentRepository,
-            AccountRepository accountRepository
+            AccountRepository accountRepository,
+            PaymentProvider paymentProvider
     ) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
+        this.paymentProvider = paymentProvider;
     }
 
     @Transactional
@@ -67,6 +70,18 @@ public class PaymentService {
                 request.fromAccountReference(),
                 request.toAccountReference()
         );
+
+        PaymentProviderResult providerResult =
+                paymentProvider.initiatePayment(
+                        payment.getReference(),
+                        payment.getAmount()
+                );
+
+        if (providerResult.status() == PaymentProviderStatus.SUCCESS) {
+            payment.markSuccess();
+        } else if (providerResult.status() == PaymentProviderStatus.FAILED) {
+            payment.markFailed();
+        }
 
         paymentRepository.save(payment);
 
