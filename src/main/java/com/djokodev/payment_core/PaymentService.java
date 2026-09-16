@@ -12,15 +12,18 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final PaymentProvider paymentProvider;
+    private final WebhookEventRepository webhookEventRepository;
 
     public PaymentService(
             PaymentRepository paymentRepository,
             AccountRepository accountRepository,
-            PaymentProvider paymentProvider
+            PaymentProvider paymentProvider,
+            WebhookEventRepository webhookEventRepository
     ) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.paymentProvider = paymentProvider;
+        this.webhookEventRepository = webhookEventRepository;
     }
 
     @Transactional
@@ -61,9 +64,6 @@ public class PaymentService {
                         )
                 );
 
-        fromAccount.debit(request.amount());
-        toAccount.credit(request.amount());
-
         Payment payment = new Payment(
                 idempotencyKey,
                 request.amount(),
@@ -78,6 +78,8 @@ public class PaymentService {
                 );
 
         if (providerResult.status() == PaymentProviderStatus.SUCCESS) {
+            fromAccount.debit(request.amount());
+            toAccount.credit(request.amount());
             payment.markSuccess();
         } else if (providerResult.status() == PaymentProviderStatus.FAILED) {
             payment.markFailed();
@@ -132,5 +134,92 @@ public class PaymentService {
                     "Source and destination accounts must be different"
             );
         }
+    }
+
+
+    @Transactional
+    public PaymentResponse processWebhook(PaymentWebhookRequest request) {
+
+        if (request.eventId() == null || request.eventId().isBlank()) {
+            throw new IllegalArgumentException("Event ID is required");
+        }
+
+        if (request.paymentReference() == null
+                || request.paymentReference().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Payment reference is required"
+            );
+        }
+
+        if (request.status() == null) {
+            throw new IllegalArgumentException(
+                    "Webhook status is required"
+            );
+        }
+
+        int inserted = webhookEventRepository.insertIfAbsent(
+                request.eventId()
+        );
+
+        if (inserted == 0) {
+            Payment payment = paymentRepository
+                    .findByReference(request.paymentReference())
+                    .orElseThrow(() ->
+                            new IllegalArgumentException(
+                                    "Payment not found"
+                            )
+                    );
+
+            return PaymentResponse.from(payment);
+        }
+
+        Payment payment = paymentRepository
+                .findByReference(request.paymentReference())
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Payment not found"
+                        )
+                );
+
+        if (payment.getStatus() == PaymentStatus.SUCCESS
+                || payment.getStatus() == PaymentStatus.FAILED) {
+
+
+            return PaymentResponse.from(payment);
+        }
+
+        if (request.status() == PaymentProviderStatus.SUCCESS) {
+
+            Account fromAccount = accountRepository
+                    .findByReferenceForUpdate(
+                            payment.getFromAccountReference()
+                    )
+                    .orElseThrow(() ->
+                            new AccountNotFoundException(
+                                    payment.getFromAccountReference()
+                            )
+                    );
+
+            Account toAccount = accountRepository
+                    .findByReferenceForUpdate(
+                            payment.getToAccountReference()
+                    )
+                    .orElseThrow(() ->
+                            new AccountNotFoundException(
+                                    payment.getToAccountReference()
+                            )
+                    );
+
+            fromAccount.debit(payment.getAmount());
+            toAccount.credit(payment.getAmount());
+
+            payment.markSuccess();
+
+        } else if (request.status() == PaymentProviderStatus.FAILED) {
+
+            payment.markFailed();
+        }
+
+        return PaymentResponse.from(payment);
     }
 }
