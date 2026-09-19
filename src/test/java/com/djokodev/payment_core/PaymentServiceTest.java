@@ -32,11 +32,18 @@ class PaymentServiceTest {
     @Autowired
     private WebhookEventRepository webhookEventRepository;
 
+    @Autowired
+    private LedgerEntryRepository ledgerEntryRepository;
+
 
     @BeforeEach
     void setUp() {
         paymentRepository.deleteAll();
         webhookEventRepository.deleteAll();
+
+        ledgerEntryRepository.deleteAll();
+        ledgerEntryRepository.flush();
+
         accountRepository.deleteAll();
 
         Account sourceAccount = new Account(
@@ -91,6 +98,50 @@ class PaymentServiceTest {
         );
 
         assertEquals(1, paymentRepository.count());
+
+        assertEquals(2, ledgerEntryRepository.count());
+
+        List<LedgerEntry> entries = ledgerEntryRepository.findAll();
+
+        LedgerEntry debitEntry = entries.stream()
+                .filter(entry -> entry.getType() == LedgerEntryType.DEBIT)
+                .findFirst()
+                .orElseThrow();
+
+        LedgerEntry creditEntry = entries.stream()
+                .filter(entry -> entry.getType() == LedgerEntryType.CREDIT)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(
+                0,
+                new BigDecimal("3000").compareTo(debitEntry.getAmount())
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("3000").compareTo(creditEntry.getAmount())
+        );
+
+        assertEquals(
+                "ACC-SOURCE",
+                debitEntry.getAccount().getReference()
+        );
+
+        assertEquals(
+                "ACC-DESTINATION",
+                creditEntry.getAccount().getReference()
+        );
+
+        assertEquals(
+                response.reference(),
+                debitEntry.getTransactionReference()
+        );
+
+        assertEquals(
+                response.reference(),
+                creditEntry.getTransactionReference()
+        );
     }
 
     @Test

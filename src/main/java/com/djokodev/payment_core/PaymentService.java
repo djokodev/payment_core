@@ -13,17 +13,20 @@ public class PaymentService {
     private final AccountRepository accountRepository;
     private final PaymentProvider paymentProvider;
     private final WebhookEventRepository webhookEventRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
 
     public PaymentService(
             PaymentRepository paymentRepository,
             AccountRepository accountRepository,
             PaymentProvider paymentProvider,
-            WebhookEventRepository webhookEventRepository
+            WebhookEventRepository webhookEventRepository,
+            LedgerEntryRepository ledgerEntryRepository
     ) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.paymentProvider = paymentProvider;
         this.webhookEventRepository = webhookEventRepository;
+        this.ledgerEntryRepository = ledgerEntryRepository;
     }
 
     @Transactional
@@ -81,6 +84,25 @@ public class PaymentService {
             fromAccount.debit(request.amount());
             toAccount.credit(request.amount());
             payment.markSuccess();
+
+            ledgerEntryRepository.save(
+                    new LedgerEntry(
+                            fromAccount,
+                            LedgerEntryType.DEBIT,
+                            request.amount(),
+                            payment.getReference()
+                    )
+            );
+
+            ledgerEntryRepository.save(
+                    new LedgerEntry(
+                            toAccount,
+                            LedgerEntryType.CREDIT,
+                            request.amount(),
+                            payment.getReference()
+                    )
+            );
+
         } else if (providerResult.status() == PaymentProviderStatus.FAILED) {
             payment.markFailed();
         }
@@ -214,6 +236,24 @@ public class PaymentService {
             toAccount.credit(payment.getAmount());
 
             payment.markSuccess();
+
+            ledgerEntryRepository.save(
+                    new LedgerEntry(
+                            fromAccount,
+                            LedgerEntryType.DEBIT,
+                            payment.getAmount(),
+                            payment.getReference()
+                    )
+            );
+
+            ledgerEntryRepository.save(
+                    new LedgerEntry(
+                            toAccount,
+                            LedgerEntryType.CREDIT,
+                            payment.getAmount(),
+                            payment.getReference()
+                    )
+            );
 
         } else if (request.status() == PaymentProviderStatus.FAILED) {
 
