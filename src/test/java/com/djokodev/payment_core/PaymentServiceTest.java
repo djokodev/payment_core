@@ -559,4 +559,81 @@ class PaymentServiceTest {
 
         assertEquals(PaymentStatus.SUCCESS, payment.getStatus());
     }
+
+
+    @Test
+    void shouldSettleSuccessfulPayment() {
+
+        PaymentResponse payment = paymentService.createPayment(
+                "KEY-SETTLEMENT-001",
+                new PaymentRequest(
+                        "ACC-SOURCE",
+                        "ACC-DESTINATION",
+                        new BigDecimal("3000")
+                )
+        );
+
+        assertEquals(PaymentStatus.SUCCESS, payment.status());
+
+        PaymentResponse settledPayment =
+                paymentService.settlePayment(payment.reference());
+
+        assertEquals(
+                PaymentStatus.SETTLED,
+                settledPayment.status()
+        );
+    }
+
+
+    @Test
+    void shouldNotSettleFailedPayment() {
+
+        paymentProvider.setStatus(PaymentProviderStatus.FAILED);
+
+        PaymentResponse payment = paymentService.createPayment(
+                "KEY-SETTLEMENT-002",
+                new PaymentRequest(
+                        "ACC-SOURCE",
+                        "ACC-DESTINATION",
+                        new BigDecimal("3000")
+                )
+        );
+
+        assertEquals(PaymentStatus.FAILED, payment.status());
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> paymentService.settlePayment(payment.reference())
+        );
+    }
+
+
+
+    @Test
+    void shouldNotSettleAlreadySettledPayment() {
+
+        PaymentResponse payment = paymentService.createPayment(
+                "KEY-SETTLEMENT-003",
+                new PaymentRequest(
+                        "ACC-SOURCE",
+                        "ACC-DESTINATION",
+                        new BigDecimal("3000")
+                )
+        );
+
+        assertEquals(PaymentStatus.SUCCESS, payment.status());
+
+        PaymentResponse settledPayment =
+                paymentService.settlePayment(payment.reference());
+
+        assertEquals(
+                PaymentStatus.SETTLED,
+                settledPayment.status()
+        );
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> paymentService.settlePayment(payment.reference())
+        );
+    }
 }

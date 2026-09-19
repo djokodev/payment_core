@@ -27,4 +27,15 @@ public class PaymentController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{reference}/settle")
+    public ResponseEntity<PaymentResponse> settlePayment(
+            @PathVariable String reference
+    ) {
+
+        PaymentResponse response =
+                paymentService.settlePayment(reference);
+
+        return ResponseEntity.ok(response);
+    }
 }

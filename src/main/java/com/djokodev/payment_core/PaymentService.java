@@ -262,4 +262,21 @@ public class PaymentService {
 
         return PaymentResponse.from(payment);
     }
+
+
+    @Transactional
+    public PaymentResponse settlePayment(String paymentReference) {
+
+        Payment payment = paymentRepository
+                .findByReference(paymentReference)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Payment not found"
+                        )
+                );
+
+        payment.markSettled();
+
+        return PaymentResponse.from(payment);
+    }
 }

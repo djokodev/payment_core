@@ -101,4 +101,14 @@ public class Payment {
     public void markFailed() {
         this.status = PaymentStatus.FAILED;
     }
+
+    public void markSettled() {
+        if (this.status != PaymentStatus.SUCCESS) {
+            throw new IllegalStateException(
+                    "Only a successful payment can be settled"
+            );
+        }
+
+        this.status = PaymentStatus.SETTLED;
+    }
 }
